@@ -28,9 +28,6 @@ import demonAsset from "@/assets/models/dodge_challenger_srt_demon_sdc.glb.asset
 import m4Asset from "@/assets/models/2025_bmw_m4_competition.glb.asset.json";
 import jeskoAsset from "@/assets/models/2019_koenigsegg_jesko.glb.asset.json";
 import voitureNoireAsset from "@/assets/models/2019_bugatti_la_voiture_noire.glb.asset.json";
-import { COCKPITS } from "./cockpit";
-import type { PlayerCar } from "./player-cars";
-import { splitSteeringWheel } from "./steering-wheel";
 
 export type TrafficModelKey = "hatch" | "sedan" | "suv" | "pickup" | "bus" | "truck";
 export type ModelKey =
@@ -737,12 +734,6 @@ export function loadCar(key: ModelKey): Promise<THREE.Group> {
         if (SHARED_HUB_KEYS.has(key)) poseWheelCorners(result, { straighten: key === "svj" });
         return result;
       });
-    p = p.then((car) => {
-      // Cars with a real cabin get a steering wheel that turns in the cockpit view.
-      const cockpit = COCKPITS[key as PlayerCar];
-      if (cockpit) splitSteeringWheel(car, cockpit);
-      return car;
-    });
     p.catch(() => cache.delete(key));
     cache.set(key, p);
   }
