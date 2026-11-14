@@ -33,3 +33,13 @@ export async function shot(key: string, eye: number[], look: number[], fov = 72)
   R.render(scene, cam);
 }
 (window as unknown as { __shot: typeof shot }).__shot = shot;
+export async function pick(key: string, eye: number[], look: number[], px: number, py: number, fov = 72) {
+  const car = await loadCar(key as never);
+  car.updateMatrixWorld(true);
+  const cam = new THREE.PerspectiveCamera(fov, 640 / 400, 0.02, 500);
+  cam.position.set(eye[0]!, eye[1]!, eye[2]!); cam.lookAt(look[0]!, look[1]!, look[2]!); cam.updateMatrixWorld();
+  const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(px / 320 - 1, 1 - py / 200), cam);
+  const h = rc.intersectObject(car, true).filter((x) => (x.object as THREE.Mesh).visible)[0];
+  return h ? { p: h.point.toArray().map((v) => +v.toFixed(3)), m: ((h.object as THREE.Mesh).material as THREE.Material).name, d: +h.distance.toFixed(3) } : null;
+}
+(window as unknown as { __pick: typeof pick }).__pick = pick;
