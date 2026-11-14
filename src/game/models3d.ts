@@ -734,6 +734,12 @@ export function loadCar(key: ModelKey): Promise<THREE.Group> {
         if (SHARED_HUB_KEYS.has(key)) poseWheelCorners(result, { straighten: key === "svj" });
         return result;
       });
+    p = p.then((car) => {
+      // Cars with a real cabin get a steering wheel that turns in the cockpit view.
+      const cockpit = COCKPITS[key as PlayerCar];
+      if (cockpit) splitSteeringWheel(car, cockpit);
+      return car;
+    });
     p.catch(() => cache.delete(key));
     cache.set(key, p);
   }

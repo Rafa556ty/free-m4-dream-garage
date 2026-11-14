@@ -59,8 +59,10 @@ export function splitSteeringWheel(car: THREE.Group, spec: CockpitSpec): THREE.G
     pivot.add(part);
     const rest = pick(keep);
     rest.computeBoundingSphere();
+    const old = m.geometry;
     m.geometry = rest;
-    if (src !== m.geometry) src.dispose();
+    if (src !== old) src.dispose();
+    old.dispose();
   }
   if (!pivot.children.length) return null;
   car.add(pivot);
