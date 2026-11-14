@@ -12,3 +12,7 @@ hatchback, estate-car, suv, pickup-truck, city-bus, semi-truck — CC0 1.0, http
 - Pagani Huayra — "(YouTube FbglaI pVV8)", TvdL Films, CC BY 3.0 (also used for Utopia Roadster: same Pagani AMG V12 family)
 - Dodge Challenger launch — "Launching sound Challenger.ogg", Axepas12, CC BY-SA 4.0 (used for the Demon)
 - Bugatti Tourbillon uses the existing Bugatti recording: no free recording of the Tourbillon V16 exists yet.
+
+## Owner-supplied playable cars
+2025 BMW M4 Competition, 2019 Koenigsegg Jesko, 2019 Bugatti La Voiture Noire — supplied by the project owner; meshopt-compressed, textures resized to 1024 px WebP.
+- La Voiture Noire uses the existing Bugatti (Chiron W16) recording; the Jesko uses the Ferrari SF90 twin-turbo V8 recording; the M4 uses the layered default engine.
