@@ -29,7 +29,7 @@ export const CAMERA_POSES: Record<Exclude<CameraView, "chase" | "cockpit">, Came
 
 /** Next view; the cockpit is skipped for cars without a modelled interior. */
 export function nextCameraView(view: CameraView, cockpit = true): CameraView {
-  const views = cockpit ? CAMERA_VIEWS : CAMERA_VIEWS.filter((v) => v !== "cockpit");
+  const views: readonly CameraView[] = cockpit ? CAMERA_VIEWS : CAMERA_VIEWS.filter((v) => v !== "cockpit");
   const i = views.indexOf(view);
   return views[(i + 1) % views.length] ?? "chase";
 }
