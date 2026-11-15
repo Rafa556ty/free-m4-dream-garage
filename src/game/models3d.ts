@@ -8,7 +8,8 @@ import { normalizeCar } from "./normalize-car";
 import { isolateActiveWing } from "./active-wing";
 import { blackOutBmwWindow } from "./bmw-windows";
 import { fixSvj } from "./svj-fix";
-import { poseWheelCorners } from "./wheel-corners";
+import { poseWheelCorners, wheelAxle } from "./wheel-corners";
+import { isSteeringPart } from "./cockpit";
 export { normalizeCar } from "./normalize-car";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
@@ -404,8 +405,13 @@ const isNewCarWheel = (o: THREE.Mesh) => {
 };
 
 /** Static cars share one draw per compatible material, not one per tiny part. */
-function batchCar(root: THREE.Group, keep?: (o: THREE.Mesh) => boolean): THREE.Group {
+function batchCar(
+  root: THREE.Group,
+  keep?: (o: THREE.Mesh) => boolean,
+  steer?: (o: THREE.Mesh) => boolean,
+): THREE.Group {
   root.updateMatrixWorld(true);
+  const steerParts: THREE.Mesh[] = [];
   const groups = new Map<
     string,
     { material: THREE.Material; geometries: THREE.BufferGeometry[] }
@@ -452,6 +458,10 @@ function batchCar(root: THREE.Group, keep?: (o: THREE.Mesh) => boolean): THREE.G
     // Decode quantized positions BEFORE baking transforms: writing a world
     // position back into Int16 attributes clips the body panels and wheels.
     geo.applyMatrix4(o.matrixWorld);
+    if (steer?.(o)) {
+      steerParts.push(new THREE.Mesh(geo, o.material));
+      return;
+    }
     if (keep?.(o)) {
       // The Revuelto GLB bakes all four wheels into ONE mesh per part
       // (tyre, rim, rotor, logo) centred on the car. Split each part into
@@ -554,7 +564,37 @@ function batchCar(root: THREE.Group, keep?: (o: THREE.Mesh) => boolean): THREE.G
     }
   }
   for (const e of extras) result.add(e);
+  if (steerParts.length) result.add(buildSteeringWheel(steerParts));
   return result.children.length ? result : root;
+}
+
+/**
+ * One "steering-wheel" group pivoted on the rim's centre, so the cockpit view
+ * can turn it about its own column (`userData.axis`, pointing at the driver).
+ */
+function buildSteeringWheel(parts: THREE.Mesh[]): THREE.Group {
+  const box = new THREE.Box3();
+  for (const p of parts) {
+    p.geometry.computeBoundingBox();
+    box.union(p.geometry.boundingBox!);
+  }
+  const center = box.getCenter(new THREE.Vector3());
+  const biggest = parts.reduce((a, b) =>
+    b.geometry.getAttribute("position").count > a.geometry.getAttribute("position").count ? b : a,
+  );
+  const axis = wheelAxle(biggest.geometry.getAttribute("position").array);
+  if (axis.z < 0) axis.negate();
+  const group = new THREE.Group();
+  group.name = "steering-wheel";
+  group.position.copy(center);
+  group.userData["axis"] = axis;
+  for (const p of parts) {
+    p.geometry.translate(-center.x, -center.y, -center.z);
+    p.name = "steering-part";
+    p.castShadow = false;
+    group.add(p);
+  }
+  return group;
 }
 
 /**
@@ -641,7 +681,10 @@ export function trimChironForTrack(car: THREE.Object3D, low = false) {
     const m = o as THREE.Mesh;
     if (!m.isMesh || Array.isArray(m.material)) return;
     const name = m.material.name || m.name;
-    if (CHIRON_HIDDEN_ON_TRACK.test(name)) m.visible = false;
+    if (CHIRON_HIDDEN_ON_TRACK.test(name)) {
+      m.visible = false;
+      m.userData["cabinOnly"] = true; // shown again in the cockpit view
+    }
     if (CHIRON_NO_SHADOW_ON_TRACK.test(name)) m.castShadow = false;
     if (!low) return;
     // Phones: the 300k-triangle body would be drawn a second time into the sun
@@ -728,6 +771,7 @@ export function loadCar(key: ModelKey): Promise<THREE.Group> {
             : NEW_CAR_KEYS.has(key)
               ? isNewCarWheel
               : undefined,
+          (o) => isSteeringPart(key, o.name, (o.material as THREE.Material).name || ""),
         );
         if (key === "revuelto") isolateActiveWing(result);
         // The SVJ file ships its front wheels pre-steered; multi-part wheels share one hub.
