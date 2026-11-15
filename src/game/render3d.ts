@@ -1752,8 +1752,9 @@ export class Scene3D {
     }
     for (const o of this.cabinOnly) o.visible = !!seat;
     const sh = s.shake * 0.012;
-    const view = this.camView === "cockpit" ? (seat ? null : "hood") : this.camView;
-    const pose = view === "chase" || view === null ? null : CAMERA_POSES[view];
+    // A car without an interior falls back to the hood cam.
+    const view: CameraView = this.camView === "cockpit" && !seat ? "hood" : this.camView;
+    const pose = view === "chase" || view === "cockpit" ? null : CAMERA_POSES[view];
     if (seat && this.player) {
       // Driver's eyes ride with the car (yaw, roll, pitch); the horizon stays level.
       const p = this.player;
