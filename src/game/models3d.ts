@@ -771,7 +771,7 @@ export function loadCar(key: ModelKey): Promise<THREE.Group> {
             : NEW_CAR_KEYS.has(key)
               ? isNewCarWheel
               : undefined,
-          (o) => isSteeringPart(key, o.name, (o.material as THREE.Material).name || ""),
+          (o) => isSteeringPart(key, `${o.name}|${o.parent?.name ?? ""}`, (o.material as THREE.Material).name || ""),
         );
         if (key === "revuelto") isolateActiveWing(result);
         // The SVJ file ships its front wheels pre-steered; multi-part wheels share one hub.
