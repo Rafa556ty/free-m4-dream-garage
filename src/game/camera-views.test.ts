@@ -20,7 +20,7 @@ describe("camera views", () => {
 
   it("keeps a fixed pose for every non-chase view", () => {
     for (const v of CAMERA_VIEWS) {
-      if (v === "chase") continue;
+      if (v === "chase" || v === "cockpit") continue;
       expect(CAMERA_POSES[v]).toBeDefined();
     }
   });
@@ -42,5 +42,10 @@ describe("camera views", () => {
     expect(CAMERA_POSES.hood.pos.y).toBeLessThan(1.3);
     expect(CAMERA_POSES.hood.pos.z).toBeLessThan(-1);
     expect(CAMERA_POSES.hood.look.z).toBeLessThan(CAMERA_POSES.hood.pos.z);
+  });
+
+  it("skips the cockpit view for cars without an interior", () => {
+    expect(nextCameraView("hood", true)).toBe("cockpit");
+    expect(nextCameraView("hood", false)).toBe("left");
   });
 });

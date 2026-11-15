@@ -24,6 +24,7 @@ import type { PlayerCar } from "./player-cars";
 import { lampRole, lampLevels, DARK_BY_DAY, type LampRole } from "./player-lights";
 import { FOOTPRINTS, TRAFFIC_DRAW_AHEAD } from "./traffic-rules";
 import { CAMERA_POSES, nextCameraView, type CameraView } from "./camera-views";
+import { COCKPIT_FOV, COCKPIT_SEATS, hasCockpit, steeringWheelAngle } from "./cockpit";
 import {
   stepAero,
   stepTrafficWing,
@@ -286,6 +287,7 @@ export class Scene3D {
     this.playerTail = []; this.playerHead = []; this.playerBrakeOnly = [];
     this.playerWipers = []; this.playerWheels = []; this.lightHalos = []; this.flames = [];
     this.engineBrakeLight = null; this.wing = undefined; this.chironRig = null;
+    this.steeringWheel = null; this.cabinOnly = [];
     this.playerKey = key;
     this.setupPlayer(template.clone(true));
     this.refreshCarCustom();
@@ -302,6 +304,7 @@ export class Scene3D {
 
   private setupChiron(car: THREE.Group) {
     trimChironForTrack(car, this.low);
+    car.traverse(o => { if (o.userData["cabinOnly"]) this.cabinOnly.push(o); });
     const rig = createTrafficLightRig("bugatti", car, 1, false);
     this.chironRig = rig;
     for (const part of rig.all) { part.count = part === rig.wipers ? 2 : 1; car.add(part); }
@@ -375,6 +378,10 @@ export class Scene3D {
 
   private player: THREE.Group | null = null;
   private wing: THREE.Object3D | undefined;
+  private steeringWheel: THREE.Object3D | null = null;
+  private cabinOnly: THREE.Object3D[] = [];
+  private eyeVector = new THREE.Vector3();
+  private lookVector = new THREE.Vector3();
   private wingBaseY = 0.96;
   private wingRise = 0.17;
   private aero: AeroState = { lift: 0, tilt: 0 };
@@ -1143,6 +1150,7 @@ export class Scene3D {
     });
 
     this.player = car;
+    this.steeringWheel = car.getObjectByName("steering-wheel") ?? null;
     this.wing = car.getObjectByName("active-wing");
     this.wingBaseY = 0.96; this.wingRise = 0.17;
     this.scene.add(car);
@@ -1437,7 +1445,7 @@ export class Scene3D {
 
   /** Switch to the next camera view (chase → hood → left → right → reverse). */
   cycleCamera(): CameraView {
-    this.camView = nextCameraView(this.camView);
+    this.camView = nextCameraView(this.camView, hasCockpit(this.playerKey));
     this.canvas.dataset["camMode"] = this.camView;
     return this.camView;
   }
@@ -1533,6 +1541,11 @@ export class Scene3D {
       for (const w of this.playerWheels) {
         w.mesh.rotation.x -= wheelOmega(s.player.speed, s.braking, w.radius) * dt;
         if (w.front) w.mesh.rotation.y = steerAngle(s.steer ?? 0);
+      }
+      if (this.steeringWheel) {
+        // Right steer turns the rim clockwise as the driver sees it.
+        const axis = this.steeringWheel.userData["axis"] as THREE.Vector3;
+        this.steeringWheel.quaternion.setFromAxisAngle(axis, -steeringWheelAngle(s.steer ?? 0));
       }
       if (import.meta.env.DEV && this.playerWheels.length) {
         this.canvas.dataset["wheelRot"] = this.playerWheels[0]!.mesh.rotation.x.toFixed(3);
@@ -1729,14 +1742,34 @@ export class Scene3D {
     // Pull back a little while accelerating for a sense of speed (no exaggeration)
     const pullTarget = s.gas && s.player.speed < 345 ? (s.boostActive ? 1 : 0.7) : 0;
     this.camPull = lerp(this.camPull, pullTarget, 1 - Math.exp(-(pullTarget > this.camPull ? 1.6 : 2.4) * dt));
-    const fov = 60 + speedK * 12;
-    if (Math.abs(this.camera.fov - fov) > 0.05) {
+    const seat = this.camView === "cockpit" && this.player ? COCKPIT_SEATS[this.playerKey] : undefined;
+    const fov = seat ? COCKPIT_FOV + speedK * 8 : 60 + speedK * 12;
+    const near = seat ? 0.03 : 0.1;
+    if (Math.abs(this.camera.fov - fov) > 0.05 || this.camera.near !== near) {
       this.camera.fov = fov;
+      this.camera.near = near;
       this.camera.updateProjectionMatrix();
     }
+    for (const o of this.cabinOnly) o.visible = !!seat;
     const sh = s.shake * 0.012;
-    const pose = this.camView === "chase" ? null : CAMERA_POSES[this.camView];
-    if (!pose) {
+    // A car without an interior falls back to the hood cam.
+    const view: CameraView = this.camView === "cockpit" && !seat ? "hood" : this.camView;
+    const pose = view === "chase" || view === "cockpit" ? null : CAMERA_POSES[view];
+    if (seat && this.player) {
+      // Driver's eyes ride with the car (yaw, roll, pitch); the horizon stays level.
+      const p = this.player;
+      p.updateMatrixWorld();
+      const [ex, ey, ez] = seat.eye;
+      this.eyeVector.set(ex, ey, ez).applyMatrix4(p.matrixWorld);
+      this.lookVector.set(ex, ey - (seat.drop ?? 0.9), ez - 30).applyMatrix4(p.matrixWorld);
+      const jolt = sh * 0.15;
+      this.camera.position.set(
+        this.eyeVector.x + (Math.random() - 0.5) * jolt,
+        this.eyeVector.y + (Math.random() - 0.5) * jolt,
+        this.eyeVector.z,
+      );
+      this.camera.lookAt(this.lookVector);
+    } else if (!pose) {
       this.camera.position.set(
         this.camX * 0.9 + (Math.random() - 0.5) * sh,
         2.05 - speedK * 0.25 + this.camPull * 0.14 + (Math.random() - 0.5) * sh,

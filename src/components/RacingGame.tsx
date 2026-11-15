@@ -563,6 +563,7 @@ export function RacingGame() {
   const camLabels: Record<CameraView, string> = {
     chase: t.camChase,
     hood: t.camHood,
+    cockpit: t.camCockpit,
     left: t.camLeft,
     right: t.camRight,
     reverse: t.camReverse,
