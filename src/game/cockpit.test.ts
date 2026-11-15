@@ -4,7 +4,9 @@ import { COCKPIT_SEATS, hasCockpit, isSteeringPart, steeringWheelAngle, WHEEL_LO
 describe("cockpit view", () => {
   it("is only offered for cars with a modelled interior", () => {
     expect(hasCockpit("revuelto")).toBe(true);
-    expect(hasCockpit("voiture-noire")).toBe(false);
+    expect(hasCockpit("m4-competition")).toBe(true);
+    expect(hasCockpit("svj")).toBe(false);
+    expect(hasCockpit("demon")).toBe(false);
   });
 
   it("seats the driver on the left, inside the cabin", () => {
